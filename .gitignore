@@ -10,8 +10,9 @@
 *.sln.docstates
 
 
+segment-stopwatch/seg-stop.js
+
 elm-stuff/
-GrahamsNbrClock.js
 experiments/canvas/index.html
 experiments/svg/index.html
 

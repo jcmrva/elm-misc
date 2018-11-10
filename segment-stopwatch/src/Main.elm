@@ -9,7 +9,9 @@ type alias Model =
     { time : Time.Posix
     , zone : Time.Zone
     , title : String
+    , currentStart : Time.Posix
     , segments : List Segment
+    , running : Bool
     }
 
 
@@ -38,7 +40,9 @@ init _ =
         initModel =
             { time = 0 |> millisToPosix
             , zone = Time.utc
-            , title = ""
+            , running = False
+            , title = "Segment Stopwatch"
+            , currentStart = 0 |> millisToPosix
             , segments = []
             }
     in
@@ -47,20 +51,26 @@ init _ =
 
 type Msg
     = ReceiveTime Time.Posix
-    | NoOp
+    | Start
+    | Stop
+    | Comment String
+    | DeleteSegment Segment
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ReceiveTime time ->
-            let
-                nextmodel =
-                    { model | time = time }
-            in
-            ( nextmodel, Cmd.none )
+            ( { model | time = time }, Cmd.none )
 
-        NoOp ->
+        Stop ->
+            let
+                newSegment =
+                    { startTime = model.currentStart, endTime = model.time, comment = "" }
+            in
+            ( { model | segments = newSegment :: model.segments }, Cmd.none )
+
+        _ ->
             ( model, Cmd.none )
 
 
