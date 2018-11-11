@@ -2,6 +2,8 @@ module Main exposing (main)
 
 import Browser exposing (Document, document)
 import Html exposing (Html, div, text)
+import Options exposing (..)
+import Task exposing (..)
 import Time exposing (..)
 
 
@@ -9,29 +11,29 @@ type alias Model =
     { time : Time.Posix
     , zone : Time.Zone
     , title : String
-    , currentStart : Time.Posix
-    , segments : List Segment
-    , running : Bool
+    , segments : List SegmentComplete
+    , options : UserOptions
+    , timer : Timer
     }
 
 
-type alias Segment =
+type Timer
+    = Stopped
+    | Running SegmentCurrent
+
+
+type alias SegmentCurrent =
     { startTime : Time.Posix
-    , endTime : Time.Posix
+    , abandon : Bool
     , comment : String
     }
 
 
-view : Model -> Document Msg
-view model =
-    { title = model.title
-    , body = body model
+type alias SegmentComplete =
+    { startTime : Time.Posix
+    , endTime : Time.Posix
+    , comment : String
     }
-
-
-body : Model -> List (Html Msg)
-body model =
-    [ div [] [] ]
 
 
 init : flags -> ( Model, Cmd Msg )
@@ -40,21 +42,37 @@ init _ =
         initModel =
             { time = 0 |> millisToPosix
             , zone = Time.utc
-            , running = False
             , title = "Segment Stopwatch"
-            , currentStart = 0 |> millisToPosix
             , segments = []
+            , options = userOptionsDefault
+            , timer = Stopped
             }
     in
-    ( initModel, Cmd.none )
+    ( initModel, Task.perform AdjustTimeZone Time.here )
+
+
+view : Model -> Document Msg
+view model =
+    { title = model.title
+    , body = [ body model ]
+    }
+
+
+body : Model -> Html Msg
+body model =
+    div [] []
 
 
 type Msg
     = ReceiveTime Time.Posix
+    | AdjustTimeZone Time.Zone
+    | AdjustResolution
     | Start
     | Stop
     | Comment String
-    | DeleteSegment Segment
+    | DeleteSegment
+    | SaveLocal
+    | DeleteLocal
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -63,12 +81,32 @@ update msg model =
         ReceiveTime time ->
             ( { model | time = time }, Cmd.none )
 
+        AdjustTimeZone z ->
+            ( { model | zone = z }, Cmd.none )
+
+        Start ->
+            let
+                running =
+                    Running (SegmentCurrent model.time False "")
+            in
+            ( { model | timer = running }, Cmd.none )
+
         Stop ->
             let
-                newSegment =
-                    { startTime = model.currentStart, endTime = model.time, comment = "" }
+                segments =
+                    case model.timer of
+                        Running s ->
+                            if s.abandon then
+                                model.segments
+
+                            else
+                                SegmentComplete s.startTime model.time s.comment
+                                    :: model.segments
+
+                        Stopped ->
+                            model.segments
             in
-            ( { model | segments = newSegment :: model.segments }, Cmd.none )
+            ( { model | segments = segments, timer = Stopped }, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -76,7 +114,11 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Time.every 1000 ReceiveTime
+    -- case model.timer of
+    -- Running _ ->
+    -- _ ->
+    --     Sub.none
+    Time.every model.options.clockResolutionMillis ReceiveTime
 
 
 main : Program () Model Msg
