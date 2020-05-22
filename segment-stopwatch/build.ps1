@@ -1,8 +1,7 @@
-param([switch]$noformat)
+param([switch]$format)
 
 elm make .\src\Main.elm --output=seg-stop.js
 
-if ($noformat) { }
-else {
+if ($format) { 
 elm-format src --yes
 }
